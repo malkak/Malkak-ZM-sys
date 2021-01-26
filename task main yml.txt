@@ -1,0 +1,95 @@
+---
+- name: Edit hosts
+  template:
+   src: hosts
+   dest: /etc/hosts
+
+- name: Stop postfix service
+  service: name=postfix state=stopped enabled=no
+
+- name: Copy zimbra_dep repo
+  template: src=zimbra_dep.repo dest=/etc/yum.repos.d/zimbra_dep.repo
+
+- name: install dependencies
+  yum:
+   state: latest
+   disablerepo: '*'
+   enablerepo: Zimbra_Dep_Repo,Centos_Repo 
+   name:
+    - unzip 
+    - net-tools 
+    - sysstat 
+    - openssh-clients 
+    - perl-core 
+    - libaio 
+    - nmap-ncat 
+    - libstdc++.so.6 
+    - vim 
+    - wget
+    - perl-Socket6
+
+- name: install DNS packages
+  yum:
+   state: latest
+   disablerepo: '*'
+   enablerepo: Zimbra_Dep_Repo
+   name:
+    - bind
+    - bind-utils
+
+- name: configure dns
+  template:
+   src: named.conf
+   dest: /etc/named.conf
+   owner: root
+   group: named
+   mode: 0644
+- name: create dns zone
+  template:
+   src: fwd
+   dest: /var/named/fwd
+   owner: root
+   group: named
+   mode: 0644
+
+- name: Start named service
+  service: name=named state=started enabled=yes
+
+- name: Copy zimbra repo
+  template: src=zimbra.repo dest=/etc/yum.repos.d/zimbra_local.repo
+
+- name: Create zimbra Directory in /root
+  file:
+    path: /root/zimbra
+    state: directory
+
+- name: Copy and unpacking Zimbra
+  unarchive:
+    src: zcs-8.8.15_GA_3869.RHEL7_64.20190918004220.tgz
+    dest: /root/zimbra
+
+- name: Uploading keystroke file
+  template:
+    src: 'installZimbra-keystrokes'
+    dest: /root/zimbra/installZimbra-keystrokes
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Uploading installer configuration file
+  template:
+    src: 'configd'
+    dest: /root/zimbra/installZimbraScript
+    owner: root
+    group: root
+    mode: 0644
+
+- name: Installing Zimbra OSE
+  shell: ./install.sh -s < /root/zimbra/installZimbra-keystrokes
+  args:
+    chdir: '/root/zimbra/zcs-8.8.15_GA_3869.RHEL7_64.20190918004220/'
+
+- name: Configuring Zimbra OSE's services for use
+  command: ./zmsetup.pl -c /root/zimbra/installZimbraScript
+  args:
+    chdir: /opt/zimbra/libexec/

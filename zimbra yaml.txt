@@ -1,0 +1,8 @@
+---
+- name: Setup zimbra mail server
+  hosts: App
+  become: true
+  tasks:
+  roles:
+   - { role: local_repo }
+   - { role: zimbra }
